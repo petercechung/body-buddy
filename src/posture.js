@@ -592,6 +592,8 @@ function updatePipBar() {
 
 const clock = new THREE.Clock();
 let loopId = 0;
+let fpsFrames = 0;
+let fpsSince = performance.now();
 function schedule() {
   const id = ++loopId;
   (pip ?? window).requestAnimationFrame(() => { if (id === loopId) frame(); });
@@ -614,6 +616,13 @@ function frame() {
   }
   renderer.render(scene, camera);
   updatePipBar();
+  // Whole loop rate (tracking + render); tracking runs once per frame, so this is the tracking rate too.
+  fpsFrames++;
+  if (now - fpsSince >= 1000) {
+    $("fps").textContent = Math.round((fpsFrames * 1000) / (now - fpsSince));
+    fpsFrames = 0;
+    fpsSince = now;
+  }
   schedule();
 }
 schedule();
