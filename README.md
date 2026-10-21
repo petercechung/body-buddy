@@ -42,5 +42,6 @@ cd multiposture && ../.venv/bin/python eval.py
 
 ## Credits
 
-- `public/template.vrm`: neutral body built by Single-Photo-VRM's `template/build.sh` from [NAVER Anny](https://github.com/naver/anny) (Apache-2.0 code; MPFB2 / MakeHuman CC0 assets).
+- `public/buddy.vrm` (default avatar): an original stylized character modelled entirely by [`avatar/build_avatar.py`](avatar/build_avatar.py) (numpy + Pillow, no Blender, no photos or downloaded assets). Rebuild with `python3 avatar/build_avatar.py`; check it on the page with `npm run build && npx vite preview --port 4173` then `node avatar/shoot.mjs` (screenshots in `avatar/shots/`).
+- `public/template.vrm` (kept as an alternative): neutral body built by Single-Photo-VRM's `template/build.sh` from [NAVER Anny](https://github.com/naver/anny) (Apache-2.0 code; MPFB2 / MakeHuman CC0 assets).
 - Test data, downloaded by `tests/fetch_data.sh`: photos and videos from [Pexels](https://www.pexels.com/license/); [MultiPosture](https://zenodo.org/records/14230872) (CC BY 4.0).

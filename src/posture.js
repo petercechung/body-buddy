@@ -357,4 +357,4 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
-loadVRM("/template.vrm").catch((err) => ($("status").textContent = "VRM 載入失敗：" + err.message));
+loadVRM("/buddy.vrm").catch((err) => ($("status").textContent = "VRM 載入失敗：" + err.message));

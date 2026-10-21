@@ -1,4 +1,4 @@
-// Checks a deployed site: the page, the old posture.html redirect, the default VRM, and the security headers.
+// Checks a deployed site: the page, the old posture.html redirect, both VRMs, and the security headers.
 const base = process.argv[2] ?? "https://bodybuddy.cechung.com";
 const checks = [["/", "Desk Buddy"]];
 let failed = false;
@@ -12,7 +12,9 @@ for (const [path, title] of checks) {
 const old = await fetch(base + "/posture.html", { redirect: "manual" });
 console.log(old.status === 301 ? "ok  " : "FAIL", "/posture.html ->", old.status, old.headers.get("location"));
 failed ||= old.status !== 301;
-const vrm = await fetch(base + "/template.vrm", { method: "HEAD" });
-console.log(vrm.ok ? "ok  " : "FAIL", "/template.vrm", vrm.status, vrm.headers.get("content-length"));
-failed ||= !vrm.ok;
+for (const path of ["/buddy.vrm", "/template.vrm"]) {
+  const vrm = await fetch(base + path, { method: "HEAD" });
+  console.log(vrm.ok ? "ok  " : "FAIL", path, vrm.status, vrm.headers.get("content-length"));
+  failed ||= !vrm.ok;
+}
 process.exit(failed ? 1 : 0);
