@@ -67,12 +67,12 @@ async function loadVRM(url) {
   applyPosture({ slouch: 0, lean: 0, tilt: 0, yaw: 0 });
 }
 
-// Frame the upper body, like a buddy sitting across the desk; closer in on head and shoulders in the small PiP window.
+// Frame head, shoulders and chest, like the webcam sees you at a desk; closer still in the small PiP window.
 function frameCamera(close = false) {
   if (!rest) return;
-  const target = rest.head.clone().setY(rest.head.y - (close ? 0.15 : 0.3));
+  const target = rest.head.clone().setY(rest.head.y - (close ? 0.08 : 0.12));
   controls.target.copy(target);
-  camera.position.copy(target).addScaledVector(rest.forward, (close ? 1.5 : 3.2) * Math.max(1, 1 / camera.aspect));
+  camera.position.copy(target).addScaledVector(rest.forward, (close ? 1.3 : 1.8) * Math.max(1, 1 / camera.aspect));
   controls.update();
 }
 
@@ -332,6 +332,8 @@ function measureFace(res) {
     lookSide: (b.eyeLookOutLeft + b.eyeLookInLeft + b.eyeLookInRight + b.eyeLookOutRight) / 2,
     lookUp: (b.eyeLookUpLeft + b.eyeLookUpRight - b.eyeLookDownLeft - b.eyeLookDownRight) / 2,
     blink: (b.eyeBlinkLeft + b.eyeBlinkRight) / 2,
+    smile: ((b.mouthSmileLeft ?? 0) + (b.mouthSmileRight ?? 0)) / 2,
+    jaw: b.jawOpen ?? 0,
   };
 }
 
@@ -518,7 +520,7 @@ function track() {
 // For testing without a camera: feed image landmarks with an explicit timestamp.
 window.__posture = { update, calibrate: () => calibrate(), reset: () => { metrics = null; }, startStretch, state: () => stretch };
 // Same for the face: pass a FaceLandmarker-shaped result ({ faceBlendshapes, facialTransformationMatrixes }) or null.
-window.__face = { update: updateFace, state: () => ({ gaze: gazeState, awayStreak, awaySeconds, counts, lastLine, head: vrm && node("head").quaternion.toArray() }) };
+window.__face = { update: updateFace, expressions: () => Object.fromEntries((vrm?.expressionManager?.expressions ?? []).map((e) => [e.expressionName, +e.weight.toFixed(2)])), state: () => ({ gaze: gazeState, awayStreak, awaySeconds, counts, lastLine, head: vrm && node("head").quaternion.toArray() }) };
 
 $("start").onclick = () => start().catch((err) => ($("status").textContent = "無法開始：" + err.message));
 $("calibrate").onclick = calibrate;
@@ -604,8 +606,13 @@ function frame() {
   if (now >= bubbleUntil) $("bubble").hidden = true;
   const em = vrm?.expressionManager;
   if (em) {
-    em.setValue("aa", speaking ? 0.25 + 0.25 * Math.sin(now / 60) : 0);
-    em.setValue("surprised", now < attendUntil ? 0.5 : 0);
+    // Mirror your face (closed eyes, smile, open mouth) while it is tracked; its own mouth moves when it speaks.
+    const f = faceBaseline && now - lastFaceAt < 300 ? faceMetrics : null;
+    const attend = now < attendUntil;
+    em.setValue("blink", f && !attend ? clamp01((f.blink - faceBaseline.blink - 0.05) / 0.45) : 0);
+    em.setValue("happy", f && !attend ? clamp01((f.smile - faceBaseline.smile - 0.1) / 0.4) : 0);
+    em.setValue("aa", speaking ? 0.25 + 0.25 * Math.sin(now / 60) : f ? clamp01((f.jaw - faceBaseline.jaw) * 2) : 0);
+    em.setValue(em.getExpression("surprised") ? "surprised" : "Surprised", attend ? 0.5 : 0); // VRoid VRM 0.x names it "Surprised"
   }
   vrm?.update(clock.getDelta());
   const size = renderer.getSize(new THREE.Vector2());
