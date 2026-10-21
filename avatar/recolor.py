@@ -29,6 +29,14 @@ def darken(png_bytes):
     return buf.getvalue()
 
 
+def blank(png_bytes):
+    """Same size, fully black: no emission."""
+    im = Image.open(io.BytesIO(png_bytes))
+    buf = io.BytesIO()
+    Image.new("RGB", im.size, (0, 0, 0)).save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
 def main(src, dst):
     data = open(src, "rb").read()
     json_len = struct.unpack("<I", data[12:16])[0]
@@ -40,7 +48,11 @@ def main(src, dst):
     views = gltf["bufferViews"]
     chunks = [blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]] for v in views]
     for img in gltf["images"]:
-        if img.get("name") in HAIR_IMAGES:
+        if img.get("name") == "F00_000_Hair_00_spe":
+            # Used as the hair's emission map: left orange, it glows as red streaks on black hair.
+            chunks[img["bufferView"]] = blank(chunks[img["bufferView"]])
+            print("blanked", img["name"])
+        elif img.get("name") in HAIR_IMAGES:
             chunks[img["bufferView"]] = darken(chunks[img["bufferView"]])
             print("recoloured", img["name"])
 

@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import { FilesetResolver, PoseLandmarker, FaceLandmarker, DrawingUtils } from "@mediapipe/tasks-vision";
+import { FilesetResolver, PoseLandmarker, FaceLandmarker, ImageSegmenter, DrawingUtils } from "@mediapipe/tasks-vision";
 
 const $ = (id) => document.getElementById(id);
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -97,10 +97,11 @@ function applyPosture({ slouch, lean, tilt, yaw, pitch = 0, headRoll = 0, shrug 
   setWorldRotation("leftUpperArm", about(forward, deg(-72)).multiply(quats.leftUpperArm));
   setWorldRotation("rightUpperArm", about(forward, deg(72)).multiply(quats.rightUpperArm));
   // Spine rounds forward with slouching and leaning in, and rolls with uneven shoulders.
-  const spineTurn = about(left, deg(Math.min(65, 28 * slouch + 15 * lean))).premultiply(about(forward, deg(-tilt)));
+  // Real-camera test: a 60% slouch at 2× buried the face in the chest, so the bend is capped to keep the face in view.
+  const spineTurn = about(left, deg(Math.min(40, 28 * slouch + 15 * lean))).premultiply(about(forward, deg(-tilt)));
   setWorldRotation("spine", spineTurn.clone().multiply(quats.spine));
   // Head drops further and turns toward where the face points.
-  const headTurn = about(up, deg(yaw)).multiply(about(forward, deg(-headRoll))).multiply(about(left, deg(Math.min(45, 25 * slouch) + pitch))).multiply(spineTurn);
+  const headTurn = about(up, deg(yaw)).multiply(about(forward, deg(-headRoll))).multiply(about(left, deg(Math.min(15, 25 * slouch) + pitch))).multiply(spineTurn);
   setWorldRotation("head", headTurn.multiply(quats.head));
 }
 
@@ -460,6 +461,8 @@ function runStretch(m, now, dt) {
 
 let landmarker = null;
 let faceLandmarker = null;
+let segmenter = null;
+let cutoutPixels = null;
 let drawer = null;
 let running = false;
 
@@ -487,6 +490,19 @@ async function start() {
     runningMode: "VIDEO",
     numPoses: 1,
   });
+  // Person/background mask for the camera preview; optional, so a failure only turns the cut-out off.
+  segmenter = await ImageSegmenter.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    outputConfidenceMasks: true,
+    outputCategoryMask: false,
+  }).catch((err) => {
+    console.warn("segmenter failed, cut-out is off:", err);
+    return null;
+  });
   faceLandmarker = await face;
   const video = $("cam");
   video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 960, height: 540 } });
@@ -509,12 +525,30 @@ function track() {
   const res = landmarker.detectForVideo(video, now);
   const ctx = $("overlay").getContext("2d");
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  drawCutout(ctx, video, now);
   if (res.landmarks?.length) {
     drawer.drawConnectors(res.landmarks[0], PoseLandmarker.POSE_CONNECTIONS, { color: "#7aa2ff", lineWidth: 3 });
     update(res.landmarks[0], now);
   }
   // After the pose, so a missing face can be told apart from an empty chair.
   if (faceLandmarker) updateFace(faceLandmarker.detectForVideo(video, now), now);
+}
+
+// Camera preview with the background removed: the video frame, alpha taken from the person mask.
+function drawCutout(ctx, video, now) {
+  const on = $("cutout").checked && segmenter;
+  $("camwrap").classList.toggle("cutout", !!on);
+  if (!on) return;
+  segmenter.segmentForVideo(video, now, (result) => {
+    const mask = result.confidenceMasks?.[0]?.getAsFloat32Array();
+    if (!mask) return;
+    const { width: w, height: h } = ctx.canvas;
+    ctx.drawImage(video, 0, 0, w, h);
+    cutoutPixels = ctx.getImageData(0, 0, w, h);
+    const px = cutoutPixels.data;
+    for (let i = 0; i < mask.length; i++) px[i * 4 + 3] = Math.min(255, Math.max(0, (mask[i] - 0.3) * 510));
+    ctx.putImageData(cutoutPixels, 0, 0);
+  });
 }
 
 // For testing without a camera: feed image landmarks with an explicit timestamp.

@@ -24,8 +24,8 @@
     <button id="calibrate">坐正，按這裡校準</button>
     <button id="stretch">一起做肩頸伸展</button>
     <button id="pip">浮到桌面</button>
-    <label>誇張倍率 <b id="gainval">2.0×</b>
-      <input id="gain" type="range" min="1" max="3" step="0.5" value="2" />
+    <label>誇張倍率 <b id="gainval">1.5×</b>
+      <input id="gain" type="range" min="1" max="3" step="0.5" value="1.5" />
     </label>
     <label><input type="checkbox" id="voice" checked /> 語音提醒</label>
     <label>提醒前的寬限
@@ -45,6 +45,7 @@
     <label class="file">換成自己的 VRM
       <input id="vrmfile" type="file" accept=".vrm" />
     </label>
+    <label><input type="checkbox" id="cutout" checked /> 鏡頭去背</label>
     <div id="camwrap">
       <video id="cam" playsinline muted></video>
       <canvas id="overlay"></canvas>

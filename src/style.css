@@ -47,6 +47,8 @@ label.file { color: var(--muted); font-size: 12px; }
 #camwrap { position: relative; }
 #cam, #overlay { width: 100%; border-radius: 8px; transform: scaleX(-1); }
 #overlay { position: absolute; inset: 0; }
+#camwrap.cutout #cam { opacity: 0; }
+#camwrap.cutout { background: repeating-conic-gradient(#8883 0 25%, transparent 0 50%) 0 0 / 16px 16px; border-radius: 8px; }
 #status { color: var(--muted); font-size: 12px; }
 @media (max-width: 720px) {
   body { grid-template-columns: 1fr; grid-template-rows: 60vh 1fr; }
