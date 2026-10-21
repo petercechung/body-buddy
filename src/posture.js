@@ -67,6 +67,57 @@ async function loadVRM(url) {
   camera.position.copy(target).addScaledVector(forward, 3.2 * Math.max(1, 1 / camera.aspect));
   controls.update();
   applyPosture({ slouch: 0, lean: 0, tilt: 0, yaw: 0 });
+  vrm.scene.updateMatrixWorld(true);
+  glasses = makeGlasses();
+  applyLook();
+}
+
+// --- customising the look ----------------------------------------------------
+
+let glasses = null;
+
+// MToon multiplies its colour with the texture, so tinting the light-haired samples gives any darker colour.
+function applyLook() {
+  if (!vrm) return;
+  const hair = new THREE.Color($("hair").value);
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const m of [o.material].flat()) {
+      if (!/HAIR|FaceBrow/i.test(m.name)) continue;
+      m.color?.copy(hair);
+      m.shadeColorFactor?.copy(hair).multiplyScalar(0.6);
+    }
+  });
+  if (glasses) glasses.visible = $("glasses").checked;
+}
+
+// Thin round frames on the raw head bone, sized and placed from the eye bones.
+// VRoid eye bones sit inside the head and close together (about 4 cm), so the lenses are spread
+// wider and pushed forward to sit over the large anime eyes.
+function makeGlasses() {
+  const head = vrm.humanoid.getRawBoneNode("head");
+  const le = vrm.humanoid.getRawBoneNode("leftEye"), re = vrm.humanoid.getRawBoneNode("rightEye");
+  if (!head || !le || !re) return null;
+  const l = worldPos(le), r = worldPos(re);
+  const gap = l.distanceTo(r);
+  const mid = l.clone().add(r).multiplyScalar(0.5).addScaledVector(rest.forward, gap * 1.45);
+  const spread = gap * 0.85, radius = gap * 0.6;
+  const mat = new THREE.MeshBasicMaterial({ color: 0x2f2f36 });
+  const group = new THREE.Group();
+  for (const side of [1, -1]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.06, 8, 40), mat);
+    ring.position.copy(mid).addScaledVector(rest.left, side * spread);
+    ring.lookAt(ring.position.clone().add(rest.forward));
+    group.add(ring);
+  }
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.05, radius * 0.05, 2 * (spread - radius), 6), mat);
+  bridge.position.copy(mid).addScaledVector(rest.up, radius * 0.25);
+  bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), rest.left);
+  group.add(bridge);
+  // Keep the world placement while parenting to the head, so the frames follow every head turn.
+  head.updateMatrixWorld(true);
+  head.attach(group);
+  return group;
 }
 
 function setWorldRotation(bone, q) {
@@ -338,7 +389,7 @@ function track() {
 }
 
 // For testing without a camera: feed image landmarks with an explicit timestamp.
-window.__posture = { update, calibrate: () => calibrate(), reset: () => { metrics = null; }, startStretch, state: () => stretch };
+window.__posture = { glasses: () => glasses, vrm: () => vrm, update, calibrate: () => calibrate(), reset: () => { metrics = null; }, startStretch, state: () => stretch };
 
 $("start").onclick = () => start().catch((err) => ($("status").textContent = "無法開始：" + err.message));
 $("calibrate").onclick = calibrate;
@@ -357,4 +408,8 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
-loadVRM("/buddy.vrm").catch((err) => ($("status").textContent = "VRM 載入失敗：" + err.message));
+$("avatar").onchange = () => loadVRM($("avatar").value).catch((err) => ($("status").textContent = "VRM 載入失敗：" + err.message));
+$("hair").oninput = applyLook;
+$("glasses").onchange = applyLook;
+
+loadVRM($("avatar").value).catch((err) => ($("status").textContent = "VRM 載入失敗：" + err.message));
