@@ -1,13 +1,17 @@
 # Body Buddy
 
-A desk buddy: your webcam watches how you sit, a VRM avatar slumps along with you (and over-acts it), reminds you to sit up, and leads a neck and shoulder stretch.
+A desk buddy: your webcam watches how you sit and where you look. A VRM avatar slumps and looks around along with you (and over-acts it), speaks up when you slouch, look away or doze off, and leads a neck and shoulder stretch. It can float on top of your other apps like a desktop pet.
 Made for the NTU「虛擬人與遙現」2026 midterm.
 
 Live: https://bodybuddy.cechung.com (use Chrome; allow the camera)
 
-1. Press 開始, sit straight, press 校準.
+1. Press 開始, sit straight looking at the screen, press 校準.
 2. The VRM mirrors your slouch, leaning in and shoulder tilt, exaggerated 1–3×, and reminds you by voice after a grace period, then sits up straight to show you.
-3. 一起做肩頸伸展: five steps (tilt right, tilt left, shrug, turn right, turn left), demonstrated by the VRM and checked by the camera.
+3. Gaze: its head follows where you look (mirrored). If you look away, close your eyes or your face disappears while you are still in the chair for longer than 「分心多久才提醒」 (5/15/30 s), it turns to you and talks (「回來喔，你分心了」). The HUD pill next to the score shows 專注 / 看旁邊 / 想睡 / 看不到臉 / 不在位子.
+4. 浮到桌面: moves the avatar and a one-line status into an always-on-top window ([Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture), desktop Chrome 116+). The camera keeps running in the original tab, which can go to the background; close the small window or press 收回分頁 to bring it back.
+5. 一起做肩頸伸展: five steps (tilt right, tilt left, shrug, turn right, turn left), demonstrated by the VRM and checked by the camera.
+
+What it says depends on the problem (slouching, too close, looking away, no face, drowsy), how long it has lasted (it repeats with the duration every 20 s or so), and how many times it happened today (kept in this browser's localStorage); for example 「已經 25 秒沒看螢幕了，要不要先把手機放下？」 or 「今天第 3 次駝背了，要不要一起做個肩頸伸展？」. The lines come from a small local rule-based generator in `src/posture.js`, so no API key or network call is involved.
 
 Load your own `.vrm` (for example one made from a photo with [Single-Photo-VRM](https://github.com/dAAAb/Single-Photo-VRM)) from the side panel. Everything runs in the browser; no video leaves your computer.
 
@@ -15,6 +19,8 @@ Load your own `.vrm` (for example one made from a photo with [Single-Photo-VRM](
 
 - [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) (33 keypoints, in-browser WASM/GPU) → [three-vrm](https://github.com/pixiv/three-vrm).
 - It uses five 2D points (nose, ears, shoulders) relative to your own calibration: ear height above the shoulder line, shoulder width (leaning in), shoulder line angle, and nose-vs-ears depth to refuse side or back views.
+- [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) on the same frames gives the head direction (facial transformation matrix) and eye blendshapes (`eyeLookIn/Out/Up/Down`, `eyeBlink`). Relative to calibration, more than about 28° sideways (head plus eyes) or 25° down or 22° up counts as looking away; eyes mostly closed counts as drowsy.
+- For testing without a camera, `window.__posture.update(landmarks, t)` and `window.__face.update(faceResult, t)` take simulated results.
 
 ## Run locally
 
