@@ -42,5 +42,6 @@ cd multiposture && ../.venv/bin/python eval.py
 
 ## Credits
 
+- `public/buddy.vrm` (default): VRoid Project's sample avatar 桜田 史利矢 (Sakurada Fumiriya), released with every VRoid Hub permission set to allow (modification, redistribution, commercial use, no credit required; the companion samples are CC0), from the [VRoid Studio CC0 models](https://opengameart.org/content/vroid-studio-cc0-models) collection. Hair and eyebrows recoloured black by `avatar/recolor.py`.
 - `public/template.vrm`: neutral body built by Single-Photo-VRM's `template/build.sh` from [NAVER Anny](https://github.com/naver/anny) (Apache-2.0 code; MPFB2 / MakeHuman CC0 assets).
 - Test data, downloaded by `tests/fetch_data.sh`: photos and videos from [Pexels](https://www.pexels.com/license/); [MultiPosture](https://zenodo.org/records/14230872) (CC BY 4.0).
