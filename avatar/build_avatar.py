@@ -55,7 +55,7 @@ BPOS = {name: np.array(p, float) for name, _, p in BONES}
 NB = len(BONES)
 
 HEAD_C = np.array([0, 1.565, 0.0])
-HEAD_R = np.array([0.096, 0.112, 0.104])
+HEAD_R = np.array([0.092, 0.116, 0.104])
 EYE_Y, EYE_X = 1.548, 0.038
 
 
@@ -269,18 +269,21 @@ def head_deform(p, d):
     p = p.copy()
     s = np.clip(-d[:, 1], 0, 1)  # lower half
     # jaw: stays wide down to the jaw angle, then narrows to the chin
-    p[:, 0] *= 1 - 0.20 * s ** 2
+    p[:, 0] *= 1 - 0.04 * s ** 2
     front = d[:, 2] > 0
     p[front, 2] *= 1 - 0.10 * s[front] ** 2
     p[~front, 2] *= 1 - 0.30 * s[~front]
     p[:, 1] *= np.where(d[:, 1] < 0, 1 - 0.06 * s, 1)
     # slightly flatter, wider cheeks: push the lower front sides out a bit
     cheek = np.exp(-((d[:, 1] + 0.35) / 0.25) ** 2) * np.clip(d[:, 2], 0, 1)
-    p[:, 0] *= 1 + 0.06 * cheek
+    p[:, 0] *= 1 + 0.10 * cheek
+    # broad jaw: the lower sides keep their width until close to the chin
+    jaw = np.exp(-((d[:, 1] + 0.70) / 0.22) ** 2) * np.clip(d[:, 2] + 0.3, 0, 1)
+    p[:, 0] *= 1 + 0.16 * jaw
     nose = np.exp(-(d[:, 0] / 0.06) ** 2 - ((d[:, 1] + 0.40) / 0.12) ** 2) * (d[:, 2] > 0)
     p[:, 2] += 0.010 * nose
     # a defined chin: the lower front centre reaches further down and a little forward
-    chin = np.exp(-(d[:, 0] / 0.32) ** 2 - ((d[:, 1] + 0.80) / 0.22) ** 2) * (d[:, 2] > 0)
+    chin = np.exp(-(d[:, 0] / 0.45) ** 2 - ((d[:, 1] + 0.80) / 0.22) ** 2) * (d[:, 2] > 0)
     p[:, 1] -= 0.012 * chin
     p[:, 2] += 0.024 * chin
     # jaw line: the underside from the chin back to below the ears stays low and fairly level
@@ -379,7 +382,7 @@ def surface_z(xy):
 FACE_PAL = {  # palette cell -> colour; the face texture is a 4x4 grid of flat colours
     "white": (250, 250, 252), "iris": (58, 42, 38), "pupil": (22, 16, 16), "lash": (34, 28, 30),
     "brow": (52, 42, 40), "mouth": (150, 70, 70), "line": (120, 64, 60), "blush": (240, 170, 160),
-    "nose": (215, 160, 140), "irislight": (110, 82, 70),
+    "nose": (196, 140, 118), "irislight": (110, 82, 70), "beard": (112, 86, 76), "stubble": (178, 136, 116),
 }
 PAL_KEYS = list(FACE_PAL)
 
@@ -400,7 +403,7 @@ def feature(xy, tris, layer, color, morphs):
 def lid_y(x, cx, side):
     # sleepy upper lid: fairly flat, a touch lower at the outer corner
     t = (x - cx) * side / 0.018
-    return EYE_Y + 0.0055 - 0.002 * t + 0.002 * (1 - t ** 2)
+    return EYE_Y + 0.0035 - 0.0015 * t + 0.0015 * (1 - t ** 2)
 
 
 def clip_top(poly, cx, side):
@@ -416,7 +419,7 @@ def ellipse(cx, cy, a, b, k=28):
 
 for side, pre in ((1, "Left"), (-1, "Right")):
     cx = side * EYE_X
-    A_, B_ = 0.0175, 0.0185
+    A_, B_ = 0.0170, 0.0135
     close_y = EYE_Y - 0.004
 
     def eye_morphs(xy, lash=False):
@@ -441,7 +444,7 @@ for side, pre in ((1, "Left"), (-1, "Right")):
     sclera = clip_top(ellipse(cx, EYE_Y, A_, B_, 36), cx, side)
     xy, tr = fan(sclera)
     feature(xy, tr, 1, "white", eye_morphs(xy))
-    iris = clip_top(ellipse(cx + side * 0.001, EYE_Y - 0.002, 0.0118, 0.0158, 32), cx, side)
+    iris = clip_top(ellipse(cx + side * 0.001, EYE_Y - 0.001, 0.0110, 0.0125, 32), cx, side)
     xy, tr = fan(iris)
     feature(xy, tr, 2, "iris", eye_morphs(xy))
     irl = clip_top(ellipse(cx + side * 0.001, EYE_Y - 0.008, 0.0085, 0.0075, 24), cx, side)
@@ -463,7 +466,7 @@ for side, pre in ((1, "Left"), (-1, "Right")):
     feature(xy, tr, 6, "lash", eye_morphs(xy, lash=True))
     # thin lower lash under the outer half
     xs = np.linspace(cx + side * 0.004, cx + side * 0.017, 8)
-    pts = np.stack([xs, EYE_Y - 0.017 + 0.007 * ((xs - cx) * side / 0.018) ** 3], 1)
+    pts = np.stack([xs, EYE_Y - 0.0125 + 0.005 * ((xs - cx) * side / 0.018) ** 3], 1)
     xy, tr = strip(pts, 0.0006)
     m = eye_morphs(xy, lash=True)
     for k in ("blink" + pre, "happy", "relaxed"):
@@ -472,8 +475,8 @@ for side, pre in ((1, "Left"), (-1, "Right")):
     # brow: soft, slightly straight
     xs = np.linspace(cx - side * 0.016, cx + side * 0.018, 12)
     t = (xs - cx) * side / 0.018
-    pts = np.stack([xs, EYE_Y + 0.037 + 0.003 * (1 - t ** 2) - 0.002 * t], 1)
-    xy, tr = strip(pts, 0.0019 - 0.0008 * (t + 1) / 2)
+    pts = np.stack([xs, EYE_Y + 0.031 + 0.0012 * (1 - t ** 2) - 0.0015 * t], 1)
+    xy, tr = strip(pts, 0.0030 - 0.0012 * (t + 1) / 2)
     tt = (xy[:, 0] - cx) * side / 0.018
     m = {}
     m["sad"] = xy + np.stack([0 * tt, 0.006 * np.clip(-tt, 0, 1) - 0.001], 1)
@@ -489,16 +492,16 @@ for side, pre in ((1, "Left"), (-1, "Right")):
         feature(xy, tr, 1, "blush", {})
 
 # nose: a short soft stroke
-xy, tr = strip(np.array([[0.002, 1.509], [-0.001, 1.506], [-0.004, 1.5055]]), 0.0009)
+xy, tr = strip(np.array([[0.004, 1.5045], [0.0, 1.5025], [-0.004, 1.5045]]), 0.0009)
 feature(xy, tr, 1, "nose", {})
 
 # mouth: a strip between an upper and a lower lip curve; neutral is a thin, slightly smiling line
-MOUTH_Y, MW = 1.479, 0.0105
+MOUTH_Y, MW = 1.474, 0.0115
 NM = 15
 t = np.linspace(-1, 1, NM)
 
 
-def mouth(width=1.0, smile=0.0025, open_=0.0, up=0.0, shape=0.8):
+def mouth(width=1.0, smile=0.004, open_=0.0, up=0.0, shape=0.8):
     x = t * MW * width
     yu = MOUTH_Y + smile * t ** 2 + up * (1 - t ** 2)
     yl = yu - 0.0013 - open_ * np.clip(1 - t ** 2, 0, 1) ** shape
@@ -514,6 +517,17 @@ feature(mouth(), mtris, 1, "mouth", {
     "happy": mouth(1.35, 0.007, 0.010, 0.0, 0.9), "sad": mouth(0.9, -0.0045, 0.0005, 0.0015),
     "relaxed": mouth(1.1, 0.004, 0.0), "surprised": mouth(0.6, 0.0, 0.013, 0.001, 0.5),
 })
+
+# thin moustache and a small chin beard; the beard follows the lower lip when the mouth opens
+for side in (1, -1):
+    xs = side * np.linspace(0.003, 0.016, 8)
+    pts = np.stack([xs, MOUTH_Y + 0.008 - 0.0018 * (np.abs(xs) / 0.016) ** 2], 1)
+    xy, tr = strip(pts, 0.0011 - 0.0005 * np.abs(xs) / 0.016)
+    feature(xy, tr, 1, "beard", {"aa": xy + (0, 0.001), "surprised": xy + (0, 0.001)})
+xy, tr = fan(ellipse(0, MOUTH_Y - 0.020, 0.0105, 0.0050, 24))
+feature(xy, tr, 1, "stubble", {k: xy - (0, 0.35 * v) for k, v in {"aa": 0.020, "oh": 0.016, "ou": 0.011, "surprised": 0.013, "ih": 0.007, "ee": 0.009, "happy": 0.004}.items()})
+xy, tr = fan(ellipse(0, MOUTH_Y - 0.0085, 0.0035, 0.0020, 12))
+feature(xy, tr, 1, "stubble", {k: xy - (0, v) for k, v in {"aa": 0.020, "oh": 0.016, "ou": 0.011, "surprised": 0.013, "ih": 0.007, "ee": 0.009, "happy": 0.008}.items()})
 
 # project everything onto the head; each layer sits a little further out
 allxy = np.vstack([it[0] for it in face_items] + [m for it in face_items for m in it[4].values()])
@@ -555,7 +569,7 @@ face.normals = np.tile([0, 0, 1.0], (len(fpos), 1))
 # --- glasses: thin round dark-grey metal frames --------------------------------------------
 
 for side in (1, -1):
-    cx, cy, R = side * (EYE_X + 0.001), EYE_Y - 0.001, 0.0235
+    cx, cy, R = side * (EYE_X + 0.002), EYE_Y - 0.002, 0.0265
     a = np.linspace(0, 2 * math.pi, 49)
     zr = surface_z(np.array([[cx + side * 0.012, cy], [cx, cy]])).max() + 0.011
     ring = np.stack([cx + R * np.cos(a), cy + R * 0.94 * np.sin(a), zr - 0.004 * (side * np.cos(a) > 0) * np.cos(a) ** 2], 1)
@@ -575,8 +589,8 @@ add("glasses", pos, tris, uv, solo(len(pos), "head"))
 # --- hair: a cap, a back curtain, and ribbon strands from a near-middle parting -----------------
 
 HC = HEAD_C + (0, 0.004, -0.004)
-HR = np.array([0.114, 0.131, 0.118])
-PART_X = 0.008
+HR = np.array([0.104, 0.130, 0.113])
+PART_X = 0.002
 
 
 def on_shell(d, scale=1.0):
@@ -642,13 +656,13 @@ tk = keep[ctris].all(1)
 add_hair(cpos, ctris[tk], cuv * (1, 0.5))
 
 # curtain behind and beside the face down to shoulder length
-phis = np.radians(np.linspace(80, 280, 40))
-ys = np.linspace(HC[1] + 0.01, 1.40, 12)
+phis = np.radians(np.linspace(116, 244, 32))
+ys = np.linspace(HC[1] + 0.01, 1.37, 12)
 P, Ph = np.meshgrid(ys, phis, indexing="ij")
 rx, rz = HR[0] * 0.93, HR[2] * 0.93
-flare = 1 + 0.03 * ((HC[1] - P) / (HC[1] - 1.40)).clip(0, 1) ** 1.5
+flare = 1 + 0.03 * ((HC[1] - P) / (HC[1] - 1.37)).clip(0, 1) ** 1.5
 pos = np.stack([rx * np.sin(Ph) * flare, P, HC[2] + rz * np.cos(Ph) * flare], -1).reshape(-1, 3)
-pos[:, 1] += 0.012 * np.cos(np.arange(len(pos)) * 1.7) * (pos[:, 1] < 1.41)
+pos[:, 1] += 0.012 * np.cos(np.arange(len(pos)) * 1.7) * (pos[:, 1] < 1.38)
 nphi = len(phis)
 tris = []
 for i in range(len(ys) - 1):
@@ -657,7 +671,7 @@ for i in range(len(ys) - 1):
         tris += [(a, a + 1, a + nphi), (a + 1, a + nphi + 1, a + nphi)]
 tris = np.array(tris)
 tris = orient(pos, tris, pos[tris].mean(1) - np.array([0, 0, HC[2]]))
-uv = np.stack([np.zeros(len(pos)), 0.3 + 0.7 * (HC[1] - pos[:, 1]) / (HC[1] - 1.40)], 1)
+uv = np.stack([np.zeros(len(pos)), 0.3 + 0.7 * (HC[1] - pos[:, 1]) / (HC[1] - 1.37)], 1)
 add_hair(pos, tris, uv)
 
 part_front = np.array([PART_X / HR[0], math.cos(math.radians(38)), math.sin(math.radians(38))])
@@ -668,32 +682,40 @@ for layer, (scale, width, n) in enumerate(((0.985, 0.040, 16), (1.03, 0.034, 15)
     for side in (1, -1):
         for i in range(n):
             f = i / (n - 1)
-            phi = side * (82 + 98 * f + rng.normal(0, 3))
+            phi = side * (114 + 66 * f + rng.normal(0, 3))
             start = slerp(part_front, part_back, np.array([min(1, f * 1.15)]))[0] if layer else sph(4 + rng.normal(0, 2), side * 90)
             start = start.copy()
             start[0] = side * abs(start[0]) + side * 0.02
-            end_y = 1.405 - 0.012 * f + rng.normal(0, 0.008)
-            if abs(phi) < 75:
-                end_y += 0.02  # face-framing locks a touch shorter
-            add_hair(*strand(start, sph(92, phi), end_y, width, 0.011, scale=scale, flare=0.012 + 0.012 * layer, curl=0.018))
+            end_y = 1.362 - 0.008 * f + rng.normal(0, 0.008)
+            add_hair(*strand(start, sph(92, phi), end_y, width, 0.010, scale=scale, flare=0.010 + 0.008 * layer, curl=-0.016))
 
 # crown strands over the back
 for i in range(12):
     phi = 150 + 60 * i / 11 + rng.normal(0, 3)
-    add_hair(*strand(sph(28, 180 + rng.normal(0, 10)), sph(92, phi), 1.395 + rng.normal(0, 0.008), 0.040, 0.011, scale=1.02, flare=0.02, curl=0.018))
+    add_hair(*strand(sph(28, 180 + rng.normal(0, 10)), sph(92, phi), 1.358 + rng.normal(0, 0.008), 0.040, 0.010, scale=1.02, flare=0.012, curl=-0.012))
 
-# no fringe: front hair is swept back from a near-middle parting over the top to the sides
+# no fringe: from a middle parting the front hair falls past the temples and cheeks to the shoulders
 for side in (1, -1):
     for i in range(9):
         f = i / 8
-        start = sph(44 - 4 * f + rng.normal(0, 2), side * (6 + 16 * f))
-        phi = side * (84 + 36 * f + rng.normal(0, 4))
-        end_y = 1.415 - 0.02 * f + rng.normal(0, 0.006)
-        add_hair(*strand(start, sph(95, phi), end_y, 0.040, 0.013, scale=1.04 + 0.01 * rng.normal(), flare=0.006, curl=0.016, n_top=16))
+        start = sph(42 - 4 * f + rng.normal(0, 2), side * (4 + 18 * f))
+        phi = side * (112 + 14 * f + rng.normal(0, 3))
+        end_y = 1.37 - 0.01 * f + rng.normal(0, 0.008)
+        add_hair(*strand(start, sph(92, phi), end_y, 0.036, 0.010, scale=1.02 + 0.006 * rng.normal(), flare=0.004, curl=-0.022, n_top=16))
     # a few loose strands slipping forward over the temple, down beside the cheek
-    for i in range(3):
+    for i in range(1):
         start = sph(40 + 3 * i, side * (10 + 6 * i))
         add_hair(*strand(start, sph(86, side * (66 + 6 * i)), 1.50 - 0.025 * i + rng.normal(0, 0.006), 0.020, 0.008, scale=1.0, flare=0.0, curl=0.006, taper=0.5))
+
+# ears, left visible: the hair is tucked behind them
+for side in (1, -1):
+    c = np.array([side * 0.089, EYE_Y - 0.014, -0.008])
+    def ear_shape(p, d, side=side):
+        p = p.copy()
+        p[:, 0] += side * 0.006 * (d[:, 2] < 0) * -d[:, 2]  # flare the back rim outward
+        return p
+    pos, tris, uv, _ = ellipsoid(c, np.array([0.009, 0.025, 0.016]), rings=14, segs=20, deform=ear_shape)
+    add(SKIN, pos, tris, uv, solo(len(pos), "head"))
 
 # Anime proportions: grow everything rigidly attached to the head about a point under the chin.
 HEAD_SCALE, HEAD_PIVOT = 1.08, np.array([0, 1.47, 0.0])
@@ -905,14 +927,14 @@ def build():
     t_hair = texture(hair_texture())
     t_face = texture(face_texture(), nearest=True)
     materials = [
-        mtoon("Skin", (255, 228, 212), (236, 178, 160), outline=0.0012),
+        mtoon("Skin", (246, 214, 190), (214, 160, 138), outline=0.0012),
         mtoon("Shirt", (255, 255, 255), (196, 200, 214), tex=t_shirt, outline=0.0012),
         mtoon("Trousers", (40, 40, 46), (22, 22, 28), outline=0.0012),
         mtoon("Shoes", (204, 207, 212), (150, 154, 166), outline=0.0012),
         mtoon("Sole", (244, 244, 244), (200, 200, 210), outline=0.0010),
         mtoon("Hair", (255, 255, 255), (150, 150, 175), tex=t_hair, outline=0.0010, double=True),
         mtoon("Face", (255, 255, 255), (255, 255, 255), tex=t_face, double=True, toony=1.0, shift=-1.0),
-        mtoon("Glasses", (70, 72, 78), (40, 42, 48), double=True),
+        mtoon("Glasses", (128, 130, 138), (92, 94, 102), double=True),
     ]
     mat_index = {"skin": 0, "shirt": 1, "pants": 2, "shoes": 3, "sole": 4, "hair": 5, "face": 6, "glasses": 7}
 
