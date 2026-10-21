@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f4f2ee;
+  --panel: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6b6b70;
+  --line: #dddad3;
+  --accent: #3d6fd8;
+  --good: #1f9d55;
+  --warn: #d9822b;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #17171a; --panel: #212125; --text: #ececf0; --muted: #9a9aa2; --line: #34343a; --accent: #7aa2ff; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, "PingFang TC", system-ui, sans-serif;
+}
+#stage { position: relative; overflow: hidden; }
+#three { display: block; width: 100%; height: 100%; }
+#hud {
+  position: absolute; top: 16px; left: 16px;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 160px;
+}
+#hud .big { font-size: 44px; font-weight: 700; line-height: 1; }
+#hud .big small { font-size: 16px; margin-left: 4px; color: var(--muted); }
+#cue { margin-top: 4px; font-weight: 600; min-height: 1.5em; }
+#cue.good { color: var(--good); }
+#cue.warn { color: var(--warn); }
+#views { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+button {
+  font: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text);
+}
+button.on, #start { background: var(--accent); color: #fff; border-color: var(--accent); }
+#panel { padding: 16px; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; }
+#panel > * { display: block; margin: 8px 0; }
+h1 { font-size: 18px; margin: 0 0 8px; }
+label.file { color: var(--muted); font-size: 12px; }
+#camwrap { position: relative; }
+#cam, #overlay { width: 100%; border-radius: 8px; transform: scaleX(-1); }
+#overlay { position: absolute; inset: 0; }
+#status { color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 60vh 1fr; }
+  #panel { border-left: 0; border-top: 1px solid var(--line); }
+}

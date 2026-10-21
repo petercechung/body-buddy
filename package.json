@@ -1,0 +1,21 @@
+{
+  "name": "body-buddy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5191",
+    "build": "vite build",
+    "check": "vite build && wrangler deploy --dry-run",
+    "deploy": "vite build && wrangler deploy",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.0.1",
+    "@pixiv/three-vrm": "3.5.5",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "vite": "8.3.1",
+    "wrangler": "4.147.0"
+  }
+}

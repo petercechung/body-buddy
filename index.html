@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Squat Mirror</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main id="stage">
+    <canvas id="three"></canvas>
+    <div id="hud">
+      <div class="big"><span id="reps">0</span><small>下</small></div>
+      <div>膝蓋角度 <b id="knee">–</b>°</div>
+      <div id="cue"></div>
+    </div>
+    <div id="views">
+      <button data-view="front" class="on">正面</button>
+      <button data-view="side">側面</button>
+      <button data-view="top">俯視</button>
+    </div>
+  </main>
+  <aside id="panel">
+    <h1>Squat Mirror</h1>
+    <button id="start">開始（開啟鏡頭）</button>
+    <label><input type="checkbox" id="mirror" checked /> 鏡像（像照鏡子）</label>
+    <label><input type="checkbox" id="voice" checked /> 語音提示</label>
+    <label><input type="checkbox" id="coach" checked /> 教練示範（藍色）</label>
+    <label>教練位置
+      <select id="layout">
+        <option value="side">在旁邊</option>
+        <option value="overlay">疊在我身上</option>
+      </select>
+    </label>
+    <label class="file">換成自己的 VRM
+      <input id="vrmfile" type="file" accept=".vrm" />
+    </label>
+    <button id="reset">次數歸零</button>
+    <div id="camwrap">
+      <video id="cam" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <p id="status">站離鏡頭約 2–3 公尺，讓全身入鏡。</p>
+  </aside>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

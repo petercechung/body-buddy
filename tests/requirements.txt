@@ -1,0 +1,4 @@
+# Python 3.12
+mediapipe==0.10.35
+numpy
+pillow

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.wrangler/
+.DS_Store
+worker-configuration.d.ts
+# test data is downloaded by tests/fetch_data.sh, not redistributed
+tests/models/
+tests/photos/
+tests/side/
+tests/squat/
+tests/videos/
+tests/multiposture/data.csv
+tests/out*/
+tests/*.jpg
+tests/results.csv
+tests/.venv/
+__pycache__/

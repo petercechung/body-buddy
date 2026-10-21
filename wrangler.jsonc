@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "body-buddy",
+  "compatibility_date": "2026-10-21",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "bodybuddy.cechung.com", "custom_domain": true }
+  ],
+  // Static only: the Vite build in dist/ is served as-is.
+  "assets": {
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
