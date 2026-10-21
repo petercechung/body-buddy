@@ -59,7 +59,7 @@ async function loadVRM(url) {
   const up = new THREE.Vector3(0, 1, 0);
   const forward = new THREE.Vector3().crossVectors(left, up).normalize();
   const quats = {};
-  for (const b of ["spine", "neck", "head", "leftUpperArm", "rightUpperArm", "leftShoulder", "rightShoulder"]) {
+  for (const b of ["spine", "neck", "head", "leftUpperArm", "rightUpperArm", "leftLowerArm", "rightLowerArm", "leftShoulder", "rightShoulder"]) {
     if (node(b)) quats[b] = worldQuat(node(b));
   }
   rest = { left, up, forward, quats, head: worldPos(node("head")) };
@@ -87,15 +87,22 @@ const about = (axis, angle) => new THREE.Quaternion().setFromAxisAngle(axis, ang
 
 // Also used for the stretch demonstrations: headRoll > 0 tips the head toward the screen's right
 // (like a mirror), shrug 0..1 lifts both shoulders. pitch > 0 nods the head down, on top of the slouch.
-function applyPosture({ slouch, lean, tilt, yaw, pitch = 0, headRoll = 0, shrug = 0 }) {
+// arms: per side, `raise` swings the upper arm in the frontal plane (-72 hangs down, 0 is the T-pose,
+// 90 points up) and `bend` folds the forearm further the same way at the elbow.
+const ARMS_DOWN = { left: { raise: -72, bend: 0 }, right: { raise: -72, bend: 0 } };
+function applyPosture({ slouch, lean, tilt, yaw, pitch = 0, headRoll = 0, shrug = 0, arms = ARMS_DOWN }) {
   if (!vrm) return;
   const { left, forward, up, quats } = rest;
   for (const [bone, sign] of [["leftShoulder", 1], ["rightShoulder", -1]]) {
     if (node(bone)) setWorldRotation(bone, about(forward, deg(sign * 22 * shrug)).multiply(quats[bone]));
   }
-  // Arms resting down instead of the T-pose.
-  setWorldRotation("leftUpperArm", about(forward, deg(-72)).multiply(quats.leftUpperArm));
-  setWorldRotation("rightUpperArm", about(forward, deg(72)).multiply(quats.rightUpperArm));
+  // Rotating about `forward` swings the left arm up for positive angles and the right arm down,
+  // so the right side flips the sign.
+  for (const [side, sign] of [["left", 1], ["right", -1]]) {
+    const { raise, bend } = arms[side];
+    setWorldRotation(`${side}UpperArm`, about(forward, deg(sign * raise)).multiply(quats[`${side}UpperArm`]));
+    setWorldRotation(`${side}LowerArm`, about(forward, deg(sign * (raise + bend))).multiply(quats[`${side}LowerArm`]));
+  }
   // Spine rounds forward with slouching and leaning in, and rolls with uneven shoulders.
   // Real-camera test: a 60% slouch at 2× buried the face in the chest, so the bend is capped to keep the face in view.
   const spineTurn = about(left, deg(Math.min(40, 28 * slouch + 15 * lean))).premultiply(about(forward, deg(-tilt)));
@@ -231,6 +238,7 @@ let lastRemindAt = -Infinity;
 function remind(kind, seconds, repeat, now) {
   if (now - lastRemindAt < 5000) return false;
   lastRemindAt = now;
+  setMood("angry", 3000, now);
   say(compose(kind, seconds, repeat));
   $("nudges").textContent = totalCount();
   return true;
@@ -284,7 +292,10 @@ function update(lm, now = performance.now()) {
     cue.textContent = reminded ? "跟著它坐直" : "有點駝背了…";
     cue.className = "warn";
   } else {
-    if (reminded) say(compose("back", badStreak));
+    if (reminded) {
+      say(compose("back", badStreak));
+      setMood("happy", 2500, now);
+    }
     badStreak = 0;
     reminded = false;
     postureNext = 0;
@@ -376,7 +387,10 @@ function updateFace(res, now = performance.now()) {
       attendUntil = now + 3000;
     }
   } else if (gazeState !== "absent") {
-    if (awayReminded) say(compose("back", awayStreak));
+    if (awayReminded) {
+      say(compose("back", awayStreak));
+      setMood("happy", 2500, now);
+    }
     awayStreak = 0;
     awayReminded = false;
     awayNext = 0;
@@ -399,12 +413,20 @@ function headGaze(now) {
 // Each step: what to say, how the buddy demonstrates it, and when the user is doing it.
 // Tipping the head also lowers the ear midpoint, so the shrug only counts with the head level.
 // "Right" means the person's own right; the buddy faces you, so it tips to the screen's right like a mirror.
+// The buddy faces you like a mirror, so tipping toward the screen's right uses its own left hand.
+const HAND_OVER_HEAD = {
+  left: { left: { raise: 100, bend: 100 }, right: ARMS_DOWN.right },
+  right: { left: ARMS_DOWN.left, right: { raise: 100, bend: 100 } },
+};
+const HANDS_ON_HIPS = { left: { raise: -40, bend: -95 }, right: { raise: -40, bend: -95 } };
 const STRETCH = [
-  { say: "頭慢慢往右倒，右耳靠近右肩", pose: { headRoll: 30 }, done: (m) => m.earTilt - baseline.earTilt > 12 },
-  { say: "換邊，頭往左倒，左耳靠近左肩", pose: { headRoll: -30 }, done: (m) => m.earTilt - baseline.earTilt < -12 },
-  { say: "肩膀往上聳，停住", pose: { shrug: 1 }, done: (m) => m.neck / baseline.neck < 0.88 && Math.abs(m.earTilt - baseline.earTilt) < 8 },
-  { say: "頭轉向右邊", pose: { yaw: -35 }, done: (m) => (m.yaw - baseline.yaw) < -0.18 },
-  { say: "頭轉向左邊", pose: { yaw: 35 }, done: (m) => (m.yaw - baseline.yaw) > 0.18 },
+  // Teacher's midterm feedback: the stretch had no arms. The buddy now helps with its hand, holds
+  // its shoulders up, and puts its hands on its hips for the turns.
+  { say: "頭慢慢往右倒，右耳靠近右肩", pose: { headRoll: 30, arms: HAND_OVER_HEAD.left }, done: (m) => m.earTilt - baseline.earTilt > 12 },
+  { say: "換邊，頭往左倒，左耳靠近左肩", pose: { headRoll: -30, arms: HAND_OVER_HEAD.right }, done: (m) => m.earTilt - baseline.earTilt < -12 },
+  { say: "肩膀往上聳，停住", pose: { shrug: 1, arms: { left: { raise: -62, bend: 10 }, right: { raise: -62, bend: 10 } } }, done: (m) => m.neck / baseline.neck < 0.88 && Math.abs(m.earTilt - baseline.earTilt) < 8 },
+  { say: "頭轉向右邊", pose: { yaw: -35, arms: HANDS_ON_HIPS }, done: (m) => (m.yaw - baseline.yaw) < -0.18 },
+  { say: "頭轉向左邊", pose: { yaw: 35, arms: HANDS_ON_HIPS }, done: (m) => (m.yaw - baseline.yaw) > 0.18 },
 ];
 // Video test: people in stretch clips held each side about 3 s, sometimes 2.8 s.
 const HOLD_SECONDS = 2;
@@ -552,7 +574,7 @@ function drawCutout(ctx, video, now) {
 }
 
 // For testing without a camera: feed image landmarks with an explicit timestamp.
-window.__posture = { update, calibrate: () => calibrate(), reset: () => { metrics = null; }, startStretch, state: () => stretch };
+window.__posture = { vrm: () => vrm, setMood, update, calibrate: () => calibrate(), reset: () => { metrics = null; }, startStretch, state: () => stretch };
 // Same for the face: pass a FaceLandmarker-shaped result ({ faceBlendshapes, facialTransformationMatrixes }) or null.
 window.__face = { update: updateFace, expressions: () => Object.fromEntries((vrm?.expressionManager?.expressions ?? []).map((e) => [e.expressionName, +e.weight.toFixed(2)])), state: () => ({ gaze: gazeState, awayStreak, awaySeconds, counts, lastLine, head: vrm && node("head").quaternion.toArray() }) };
 
@@ -624,6 +646,21 @@ function updatePipBar() {
   bar.className = $("cue").className;
 }
 
+// --- the buddy's own expressions --------------------------------------------------
+
+// Teacher's midterm feedback: the expressions were too subtle. The buddy now reacts with its whole face:
+// a frown when it reminds you, a big smile when you fix it, and a worried look while you drift.
+let mood = { name: null, until: 0 };
+function setMood(name, ms, now = performance.now()) {
+  mood = { name, until: now + ms };
+}
+const MOOD_WEIGHT = { angry: 0.7, happy: 1, sad: 0.45 };
+function moodWeights(now) {
+  if (now < mood.until) return { [mood.name]: MOOD_WEIGHT[mood.name] };
+  if (badStreak > 0 || awayStreak > 0) return { sad: MOOD_WEIGHT.sad };
+  return {};
+}
+
 // --- loop ---------------------------------------------------------------------
 
 const clock = new THREE.Clock();
@@ -644,9 +681,12 @@ function frame() {
     const f = faceBaseline && now - lastFaceAt < 300 ? faceMetrics : null;
     const attend = now < attendUntil;
     em.setValue("blink", f && !attend ? clamp01((f.blink - faceBaseline.blink - 0.05) / 0.45) : 0);
-    em.setValue("happy", f && !attend ? clamp01((f.smile - faceBaseline.smile - 0.1) / 0.4) : 0);
+    const m = moodWeights(now);
+    em.setValue("happy", Math.max(m.happy ?? 0, f && !attend ? clamp01((f.smile - faceBaseline.smile - 0.1) / 0.4) : 0));
+    em.setValue("angry", m.angry ?? 0);
+    em.setValue("sad", m.sad ?? 0);
     em.setValue("aa", speaking ? 0.25 + 0.25 * Math.sin(now / 60) : f ? clamp01((f.jaw - faceBaseline.jaw) * 2) : 0);
-    em.setValue(em.getExpression("surprised") ? "surprised" : "Surprised", attend ? 0.5 : 0); // VRoid VRM 0.x names it "Surprised"
+    em.setValue(em.getExpression("surprised") ? "surprised" : "Surprised", 0); // VRoid VRM 0.x names it "Surprised"; the frown replaces it
   }
   vrm?.update(clock.getDelta());
   const size = renderer.getSize(new THREE.Vector2());
