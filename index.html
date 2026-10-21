@@ -3,45 +3,44 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Squat Mirror</title>
+  <title>Desk Buddy</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <main id="stage">
     <canvas id="three"></canvas>
     <div id="hud">
-      <div class="big"><span id="reps">0</span><small>下</small></div>
-      <div>膝蓋角度 <b id="knee">–</b>°</div>
+      <div class="big"><span id="score">–</span><small>分</small></div>
+      <div>頭前傾 <b id="neck">–</b>｜靠近螢幕 <b id="lean">–</b>｜肩歪 <b id="tilt">–</b>°</div>
+      <div>駝背累計 <b id="badtime">0</b> 秒</div>
       <div id="cue"></div>
-    </div>
-    <div id="views">
-      <button data-view="front" class="on">正面</button>
-      <button data-view="side">側面</button>
-      <button data-view="top">俯視</button>
     </div>
   </main>
   <aside id="panel">
-    <h1>Squat Mirror</h1>
+    <h1>Desk Buddy</h1>
     <button id="start">開始（開啟鏡頭）</button>
-    <label><input type="checkbox" id="mirror" checked /> 鏡像（像照鏡子）</label>
-    <label><input type="checkbox" id="voice" checked /> 語音提示</label>
-    <label><input type="checkbox" id="coach" checked /> 教練示範（藍色）</label>
-    <label>教練位置
-      <select id="layout">
-        <option value="side">在旁邊</option>
-        <option value="overlay">疊在我身上</option>
+    <button id="calibrate">坐正，按這裡校準</button>
+    <button id="stretch">一起做肩頸伸展</button>
+    <label>誇張倍率 <b id="gainval">2.0×</b>
+      <input id="gain" type="range" min="1" max="3" step="0.5" value="2" />
+    </label>
+    <label><input type="checkbox" id="voice" checked /> 語音提醒</label>
+    <label>提醒前的寬限
+      <select id="grace">
+        <option value="3">3 秒（demo 用）</option>
+        <option value="10" selected>10 秒</option>
+        <option value="60">1 分鐘</option>
       </select>
     </label>
     <label class="file">換成自己的 VRM
       <input id="vrmfile" type="file" accept=".vrm" />
     </label>
-    <button id="reset">次數歸零</button>
     <div id="camwrap">
       <video id="cam" playsinline muted></video>
       <canvas id="overlay"></canvas>
     </div>
-    <p id="status">站離鏡頭約 2–3 公尺，讓全身入鏡。</p>
+    <p id="status">坐在筆電前，讓頭和雙肩入鏡。</p>
   </aside>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/posture.js"></script>
 </body>
 </html>
